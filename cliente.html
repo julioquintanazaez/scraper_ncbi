@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Extracción de Secuencias - FastAPI</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .upload-area {
+            border: 2px dashed #ccc;
+            border-radius: 5px;
+            padding: 40px;
+            text-align: center;
+            margin: 20px 0;
+            background-color: #fafafa;
+        }
+        .upload-area:hover {
+            border-color: #007bff;
+        }
+        input[type="file"] {
+            margin: 10px 0;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #007bff;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 2s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Extraer Secuencias de NCBI</h1>
+        
+        <div class="info">
+            <p><strong>Instrucciones:</strong></p>
+            <p>1. Prepara un archivo TXT con los códigos de acceso separados por comas</p>
+            <p>2. Ejemplo de contenido: <code>D32130,AB123456,NC_000001</code></p>
+            <p>3. El proceso puede tomar varios segundos dependiendo del número de secuencias</p>
+        </div>
+
+        <form id="uploadForm">
+            <div class="upload-area">
+                <h3>Selecciona tu archivo TXT</h3>
+                <input type="file" id="fileInput" name="file" accept=".txt" required>
+                <p>Arrastra y suelta tu archivo aquí o haz clic para seleccionar</p>
+            </div>
+            <div style="text-align: center;">
+                <button type="submit" id="submitBtn">Procesar Secuencias</button>
+            </div>
+        </form>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Procesando secuencias... Esto puede tomar varios segundos.</p>
+        </div>
+
+        <div id="result"></div>
+    </div>
+
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const fileInput = document.getElementById('fileInput');
+            const submitBtn = document.getElementById('submitBtn');
+            const loading = document.getElementById('loading');
+            const resultDiv = document.getElementById('result');
+            
+            if (!fileInput.files[0]) {
+                resultDiv.innerHTML = '<div class="error">Por favor, selecciona un archivo</div>';
+                return;
+            }
+            
+            // Mostrar loading y deshabilitar botón
+            submitBtn.disabled = true;
+            loading.style.display = 'block';
+            resultDiv.innerHTML = '';
+            
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            
+            try {
+                const response = await fetch('http://localhost:8000/api/extract-sequences', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    // Descargar el archivo
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'secuencias_resultado.csv';
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                    
+                    resultDiv.innerHTML = '<div class="success">¡Archivo descargado exitosamente! Revisa tus descargas.</div>';
+                } else {
+                    const errorData = await response.json();
+                    resultDiv.innerHTML = `<div class="error">Error: ${errorData.detail || 'Error desconocido'}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">Error de conexión: ${error.message}</div>`;
+            } finally {
+                // Ocultar loading y habilitar botón
+                submitBtn.disabled = false;
+                loading.style.display = 'none';
+            }
+        });
+
+        // Mejora UX para drag and drop
+        const uploadArea = document.querySelector('.upload-area');
+        const fileInput = document.getElementById('fileInput');
+
+        uploadArea.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.style.borderColor = '#007bff';
+            uploadArea.style.backgroundColor = '#e9f7fe';
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.style.borderColor = '#ccc';
+            uploadArea.style.backgroundColor = '#fafafa';
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.style.borderColor = '#ccc';
+            uploadArea.style.backgroundColor = '#fafafa';
+            
+            if (e.dataTransfer.files.length) {
+                fileInput.files = e.dataTransfer.files;
+                // Mostrar nombre del archivo
+                uploadArea.querySelector('p').textContent = `Archivo seleccionado: ${e.dataTransfer.files[0].name}`;
+            }
+        });
+
+        // Mostrar nombre del archivo cuando se selecciona
+        fileInput.addEventListener('change', function() {
+            if (this.files.length) {
+                uploadArea.querySelector('p').textContent = `Archivo seleccionado: ${this.files[0].name}`;
+            }
+        });
+    </script>
+</body>
+</html>
