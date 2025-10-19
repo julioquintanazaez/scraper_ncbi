@@ -144,7 +144,7 @@
             formData.append('file', fileInput.files[0]);
             
             try {
-                const response = await fetch('http://localhost:8000/api/extract-sequences', {
+                const response = await fetch('https://scraper-ncbi.onrender.com/api/extract-sequences', {
                     method: 'POST',
                     body: formData
                 });
