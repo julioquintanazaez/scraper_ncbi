@@ -1,5 +1,5 @@
 # Ignore the build directory
 __pycache__/
-scraper/
+scraper_venv/
 
 
